@@ -1,12 +1,11 @@
 package com.example.weatherapi;
 
-import com.example.weatherapi.SensorDataRequest;
-import com.example.weatherapi.SensorData;
-import com.example.weatherapi.SensorService;
-
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.Instant;
+import java.util.List;
 
 @RestController
 @RequestMapping("/sensors")
@@ -22,5 +21,18 @@ public class SensorController {
     public ResponseEntity<SensorData> addSensorData(@Valid @RequestBody SensorDataRequest request) {
         SensorData saved = service.saveSensorData(request);
         return ResponseEntity.ok(saved);
+    }
+
+    @GetMapping("/query")
+    public ResponseEntity<QueryResult> query(
+            @RequestParam(required = false) List<String> sensorIds,
+            @RequestParam(required = false) List<String> metrics,
+            @RequestParam(defaultValue = "avg") String stat,
+            @RequestParam(required = false) Instant from,
+            @RequestParam(required = false) Instant to
+    ) {
+        Statistic statistic = Statistic.from(stat);
+        QueryResult result = service.queryData(sensorIds, metrics, statistic, from, to);
+        return ResponseEntity.ok(result);
     }
 }

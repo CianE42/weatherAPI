@@ -1,11 +1,13 @@
 package com.example.weatherapi;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
 
 @Document(collection = "sensor_data")
+@CompoundIndex(name = "sensor_metric_time_idx", def = "{'sensorId': 1, 'metric': 1, 'timestamp': 1}")
 public class SensorData {
     @Id
     private String id;
