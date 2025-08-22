@@ -24,11 +24,16 @@ public class SensorService {
     }
 
     public SensorData saveSensorData(SensorDataRequest request) {
+        // Validate/normalize metric
+        Metric metric = Metric.from(request.getMetric());
+
         SensorData data = new SensorData();
         data.setSensorId(request.getSensorId());
-        data.setMetric(request.getMetric());
+        // Persist normalized lowercase string (stable querying)
+        data.setMetric(metric.dbValue());
         data.setValue(request.getValue());
         data.setTimestamp(request.getTimestamp());
+
         return repository.save(data);
     }
 

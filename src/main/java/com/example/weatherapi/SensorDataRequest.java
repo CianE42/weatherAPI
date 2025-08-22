@@ -8,7 +8,7 @@ public class SensorDataRequest {
     @NotBlank
     private String sensorId;
 
-    @NotBlank
+    @NotBlank(message = "metric is required (temperature, humidity, wind_speed)")
     private String metric;
 
     @NotNull

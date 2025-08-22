@@ -32,7 +32,17 @@ public class SensorController {
             @RequestParam(required = false) Instant to
     ) {
         Statistic statistic = Statistic.from(stat);
-        QueryResult result = service.queryData(sensorIds, metrics, statistic, from, to);
+
+        // Normalize metrics (allow null/empty = "all")
+        List<String> normalizedMetrics = null;
+        if (metrics != null && !metrics.isEmpty()) {
+            normalizedMetrics = metrics.stream()
+                    .map(Metric::from)       // validate
+                    .map(Metric::dbValue)    // normalize for DB
+                    .toList();
+        }
+
+        QueryResult result = service.queryData(sensorIds, normalizedMetrics, statistic, from, to);
         return ResponseEntity.ok(result);
     }
 }

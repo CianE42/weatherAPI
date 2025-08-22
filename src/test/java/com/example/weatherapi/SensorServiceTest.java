@@ -124,4 +124,31 @@ class SensorServiceTest {
         assertTrue(ex.getMessage().contains("Date range must be between 1 and 31 days"));
         verifyNoInteractions(mongoTemplate);
     }
+
+    @Test
+    void saveSensorData_normalizesMetricBeforePersist() {
+        SensorDataRequest req = new SensorDataRequest();
+        req.setSensorId("9");
+        req.setMetric("Wind-Speed"); // mixed/hyphen
+        req.setValue(12.3);
+        req.setTimestamp(Instant.parse("2025-08-20T10:00:00Z"));
+
+        when(repository.save(any(SensorData.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        SensorData out = service.saveSensorData(req);
+
+        ArgumentCaptor<SensorData> captor = ArgumentCaptor.forClass(SensorData.class);
+        verify(repository).save(captor.capture());
+        SensorData written = captor.getValue();
+
+        // Should be normalized to "wind_speed"
+        assertEquals("wind_speed", written.getMetric());
+        assertEquals("9", written.getSensorId());
+        assertEquals(12.3, written.getValue());
+        assertEquals(Instant.parse("2025-08-20T10:00:00Z"), written.getTimestamp());
+
+        // Return value is the same entity (since we echoed in the stub)
+        assertEquals("wind_speed", out.getMetric());
+    }
+
 }
