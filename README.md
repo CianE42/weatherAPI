@@ -7,7 +7,7 @@ A small REST API that ingests weather sensor readings and supports queries (min/
 - **Tests:** JUnit 5, Mockito (unit), Testcontainers + MockMvc (integration)
 - **Endpoints:**
 
-  - `POST /sensors/data` — ingest a reading
+  - `POST /sensors/data` — ingest a sensor reading
   - `GET  /sensors/query` — aggregate stats (min/max/sum/avg)
 
 ## Quick start
@@ -16,7 +16,7 @@ A small REST API that ingests weather sensor readings and supports queries (min/
 
 - Java 21 (Temurin recommended)
 - Maven 3.9+
-
+- MongoDB
   - **Option A (Recommended):** Docker Desktop (for both running MongoDB _and_ running integration tests with Testcontainers)
     OR
   - **Option B:** Local MongoDB 6/7
@@ -76,9 +76,9 @@ App starts on `http://localhost:8080`.
 
 When running with the demo profile, the application will auto-populate MongoDB with synthetic sensor data:
 
-3 sensors (1, 2, 3)
-3 metrics (temperature, humidity, wind_speed)
-Data points every 6 hours for the last 7 days
+- 3 sensors (1, 2, 3)
+- 3 metrics (temperature, humidity, wind_speed)
+- Data points every 6 hours for the last 7 days
 
 Collection is dropped and reseeded fresh on every startup
 
@@ -124,22 +124,53 @@ GET /sensors/query
 **Query params:**
 
 - `sensorIds` — optional comma list;
-- `metrics` — optional comma list; vaild metrics include: `temperature`, `humidity`, `wind_speed`
+- `metrics` — optional comma list; valid metrics include: `temperature`, `humidity`, `wind_speed`
 - `stat` — `min`, `max`, `sum`, `avg`
 - `from`, `to` — ISO-8601 instants;
 
+---
+
 ## Query Defaults
 
-- **Statistic (`stat`)**: defaults to `avg` if omitted.
+- **Statistic (`stat`)**: defaults to `avg`.
 - **Date range (`from`/`to`)**:
-  - If both are omitted → defaults to the **last 24 hours relative to now**.
-  - If only `from` is supplied → `to` defaults to `from + 1 day`.
-  - If only `to` is supplied → `from` defaults to `to - 1 day`.
-  - Range must always be **between 1 and 31 days**.
-- **Sensors/metrics**: if omitted, the query includes **all sensors and metrics**.
-- **Empty results**: if no data matches the query, the API still returns **200 OK**
-  with an empty `resultsByMetric` object (instead of a 400). This makes it clear the query
-  was valid but no data existed in the window.
+
+  - If both omitted → last **24 hours relative to now**.
+  - If only `from` supplied → `to = from + 1 day`.
+  - If only `to` supplied → `from = to - 1 day`.
+  - Valid range: **1 to 31 days**.
+
+- **Sensors / metrics**: if omitted, all sensors and all metrics are included.
+
+---
+
+## Assumptions & Conventions
+
+- **Units (not enforced)**
+
+  - `temperature` → °C (Celsius)
+  - `humidity` → % relative humidity
+  - `wind_speed` → m/s (meters per second)
+
+- **Time**
+
+  - All timestamps must be **UTC ISO-8601** (e.g., `2025-08-01T12:00:00Z`).
+  - Query ranges are **inclusive** (`from ≤ t ≤ to`).
+
+- **Sensors**
+
+  - Sensor IDs are free-form strings (`"1"`, `"A-42"`, etc.), no registration required.
+
+- **Validation**
+
+  - Metrics are validated/normalized (`WindSpeed`, `wind-speed` → `wind_speed`).
+  - Units are assumed, not validated.
+
+- **Empty results**
+
+  - Valid queries with no data return `200 OK` and an empty `resultsByMetric`.
+
+---
 
 **Examples**
 
@@ -235,7 +266,7 @@ curl "http://localhost:8080/sensors/query"
 
 ## Running tests
 
-### Unit tests (fast)
+### Unit tests
 
 ```bash
 mvn -Dtest="*ServiceTest,*ModelTest" test
@@ -295,3 +326,22 @@ mvn test
 - Mongo aggregation pipeline + compound index
 - Global error handling (400s with useful messages)
 - Unit tests (service, enum parsing) & integration tests (MockMvc + Testcontainers)
+
+---
+
+## Future Improvements
+
+- **Authentication & authorization**
+  Restrict data writes/queries to authenticated users (e.g., via JWT/OAuth2).
+
+- **Unit validation & conversions**
+  Enforce proper units on metrics (e.g., °C vs °F) and support conversions.
+
+- **More metrics**
+  Extend to additional sensor metrics like pressure, rainfall, air quality.
+
+- **Visualization & dashboards**
+  Expose metrics to Grafana/Prometheus or bundle a lightweight web UI for browsing/querying sensor data.
+
+- **Cloud deployment**
+  Package with Docker/Kubernetes and deploy to AWS/GCP/Azure with managed MongoDB.
