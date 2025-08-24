@@ -99,16 +99,13 @@ public class SensorService {
             }
         }
 
-        if (resultsByMetric.isEmpty()) {
-            throw new IllegalArgumentException("No data found for given query.");
-        }
-
+        //Return empty result set with 200 OK 
         return new QueryResult(
                 (sensorIds == null || sensorIds.isEmpty()) ? null : sensorIds,
                 (metrics == null || metrics.isEmpty()) ? null : metrics,
                 statistic.name().toLowerCase(),
                 from, to,
-                resultsByMetric
+                resultsByMetric // can be empty
         );
     }
 }

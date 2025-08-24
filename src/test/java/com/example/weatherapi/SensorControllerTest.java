@@ -17,6 +17,7 @@ import java.time.Instant;
 import static org.hamcrest.Matchers.closeTo;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.anEmptyMap;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -99,5 +100,20 @@ class SensorControllerTest {
       .andExpect(status().isOk())
       // 20 + 22 + 24 = 66
       .andExpect(jsonPath("$.resultsByMetric.temperature", is(closeTo(66.0, 1e-4))));
+  }
+
+  @Test
+  void query_noData_returnsEmptyResult() throws Exception {
+      mockMvc.perform(get("/sensors/query")
+                      .param("sensorIds", "1")
+                      .param("metrics", "temperature")
+                      .param("stat", "avg")
+                      // choose a range far in the past to ensure no match
+                      .param("from", "2000-01-01T00:00:00Z")
+                      .param("to",   "2000-01-02T00:00:00Z")
+                      .accept(MediaType.APPLICATION_JSON))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.resultsByMetric").isMap())
+              .andExpect(jsonPath("$.resultsByMetric", anEmptyMap()));
   }
 }
