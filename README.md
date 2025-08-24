@@ -17,22 +17,20 @@ A small REST API that ingests weather sensor readings and supports queries (min/
 - Java 21 (Temurin recommended)
 - Maven 3.9+
 
-- **Option A (Recommended):** Docker Desktop (for both running MongoDB _and_ running integration tests with Testcontainers)
-  OR
-- **Option B:** Local MongoDB 6/7
+  - **Option A (Recommended):** Docker Desktop (for both running MongoDB _and_ running integration tests with Testcontainers)
+    OR
+  - **Option B:** Local MongoDB 6/7
 
 > If you have Docker Desktop, you don’t need MongoDB installed locally.
 
 ### 1 Clone and build
 
 ```bash
-
 git clone https://github.com/CianE42/weatherAPI.git
+```
 
+```bash
 cd weatherAPI
-
-mvn clean package
-
 ```
 
 ### 2 Choose how to run MongoDB
@@ -115,17 +113,7 @@ Notes:
 
 - `metric` is validated and normalized; accepted (case/format-insensitive):
   `temperature`, `humidity`, `wind_speed` (also accepts `wind-speed`, `windSpeed`).
-- `timestamp` must be ISO-8601 UTC (e.g., `...Z`).
-
-**curl**
-
-```bash
-curl -X POST http://localhost:8080/sensors/data \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "sensorId":"1","metric":"Wind-Speed","value":10.0,"timestamp":"2025-08-16T12:00:00Z"
-  }'
-```
+- `timestamp` must be ISO-8601 UTC (e.g., `2025-08-01T00:00:00Z`).
 
 ### Query aggregates
 
@@ -133,32 +121,58 @@ curl -X POST http://localhost:8080/sensors/data \
 GET /sensors/query
 ```
 
-Query params:
+**Query params:**
 
-- `sensorIds` — optional comma list; omit = all sensors
-- `metrics` — optional comma list; omit = all metrics (validated/normalized)
-- `stat` — `min|max|sum|avg` (default `avg`)
-- `from`, `to` — ISO-8601 instants; if omitted, defaults to the last 24h
-  (When supplied, must be between **1 and 31 days**.)
+- `sensorIds` — optional comma list;
+- `metrics` — optional comma list; vaild metrics include: `temperature`, `humidity`, `wind_speed`
+- `stat` — `min`, `max`, `sum`, `avg`
+- `from`, `to` — ISO-8601 instants;
+
+## Query Defaults
+
+- **Statistic (`stat`)**: defaults to `avg` if omitted.
+- **Date range (`from`/`to`)**:
+  - If both are omitted → defaults to the **last 24 hours relative to now**.
+  - If only `from` is supplied → `to` defaults to `from + 1 day`.
+  - If only `to` is supplied → `from` defaults to `to - 1 day`.
+  - Range must always be **between 1 and 31 days**.
+- **Sensors/metrics**: if omitted, the query includes **all sensors and metrics**.
+- **Empty results**: if no data matches the query, the API still returns **200 OK**
+  with an empty `resultsByMetric` object (instead of a 400). This makes it clear the query
+  was valid but no data existed in the window.
 
 **Examples**
 
-Average temperature & humidity for sensor 1 between Aug 1–3:
+Insert data into the database:
+
+```bash
+curl -X POST http://localhost:8080/sensors/data \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "sensorId":"1",
+    "metric":"temperature",
+    "value":22.5,
+    "timestamp":"2025-08-01T12:00:00Z"
+  }'
+```
+
+```bash
+curl -X POST http://localhost:8080/sensors/data \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "sensorId":"1",
+    "metric":"humidity",
+    "value":60.0,
+    "timestamp":"2025-08-01T12:00:00Z"
+  }'
+```
+
+---
+
+**Average temperature & humidity for sensor 1 between Aug 1–3:**
 
 ```bash
 curl "http://localhost:8080/sensors/query?sensorIds=1&metrics=temperature,humidity&stat=avg&from=2025-08-01T00:00:00Z&to=2025-08-03T23:59:59Z"
-```
-
-Max temperature for sensor 1 in the same window:
-
-```bash
-curl "http://localhost:8080/sensors/query?sensorIds=1&metrics=temperature&stat=max&from=2025-08-01T00:00:00Z&to=2025-08-03T23:59:59Z"
-```
-
-Using defaults (last 24h, all sensors/metrics, avg):
-
-```bash
-curl "http://localhost:8080/sensors/query"
 ```
 
 Sample response:
@@ -171,13 +185,53 @@ Sample response:
   "from": "2025-08-01T00:00:00Z",
   "to": "2025-08-03T23:59:59Z",
   "resultsByMetric": {
-    "temperature": 22.0,
+    "temperature": 22.5,
     "humidity": 60.0
   }
 }
 ```
 
 ---
+
+Insert an additional reading for the same sensor, same metric but different day:
+
+```bash
+curl -X POST http://localhost:8080/sensors/data \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "sensorId":"1",
+    "metric":"temperature",
+    "value":24.0,
+    "timestamp":"2025-08-02T12:00:00Z"
+  }'
+```
+
+**Query max temperature in the window Aug 1–3:**
+
+```bash
+curl "http://localhost:8080/sensors/query?sensorIds=1&metrics=temperature&stat=max&from=2025-08-01T00:00:00Z&to=2025-08-03T23:59:59Z"
+```
+
+Response:
+
+```json
+{
+  "sensorIds": ["1"],
+  "metrics": ["temperature"],
+  "statistic": "max",
+  "from": "2025-08-01T00:00:00Z",
+  "to": "2025-08-03T23:59:59Z",
+  "resultsByMetric": {
+    "temperature": 24.0
+  }
+}
+```
+
+Using defaults (last 24h, all sensors/metrics, avg):
+
+```bash
+curl "http://localhost:8080/sensors/query"
+```
 
 ## Running tests
 
@@ -196,15 +250,6 @@ mvn test
 ```
 
 > If you can’t run Docker, you can skip integration tests by running only the unit tests above.
-
----
-
-## Postman collection
-
-Import the provided Postman collection from `postman/WeatherMetrics.postman_collection.json` (if included), or create two requests:
-
-- `POST /sensors/data` with example body
-- `GET /sensors/query` with params shown above
 
 ---
 
