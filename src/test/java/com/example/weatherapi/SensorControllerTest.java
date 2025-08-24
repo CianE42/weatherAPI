@@ -14,15 +14,16 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.Instant;
 
-import static org.hamcrest.Matchers.closeTo;
-import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.anEmptyMap;
+import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * Full-stack integration test: Spring Boot + Controller + Repository + Testcontainers MongoDB.
+ * Full-stack integration tests:
+ * - Runs Spring Boot app with Testcontainers MongoDB
+ * - Seeds test data before each test
+ * - Calls /sensors/query endpoints via MockMvc
+ * - Asserts on full JSON response
  */
 @Testcontainers
 @SpringBootTest
@@ -30,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SensorControllerTest {
 
-  // Fixed tag avoids Apple Silicon/x86 surprises
+  // Temporary MongoDB container
   @Container
   @ServiceConnection 
   static final MongoDBContainer mongo = new MongoDBContainer("mongo:7");
@@ -40,15 +41,15 @@ class SensorControllerTest {
 
   @BeforeEach
   void seed() {
+    // Reset and seed small dataset for each test
     repository.deleteAll();
-    // Sensor 1 temperature on Aug 1, 2, 3
     repository.save(doc("1", "temperature", 20.0, "2025-08-01T12:00:00Z"));
     repository.save(doc("1", "temperature", 22.0, "2025-08-02T12:00:00Z"));
     repository.save(doc("1", "temperature", 24.0, "2025-08-03T12:00:00Z"));
-    // Sensor 1 humidity on Aug 2
     repository.save(doc("1", "humidity",    60.0, "2025-08-02T12:00:00Z"));
   }
 
+  // Helper to build SensorData docs
   private static SensorData doc(String sensorId, String metric, double value, String isoInstant) {
     SensorData d = new SensorData();
     d.setSensorId(sensorId);
@@ -60,6 +61,7 @@ class SensorControllerTest {
 
   @Test
   void queryAvgTempAndHumidity_windowAug1to3() throws Exception {
+    // Expect avg temp = (20+22+24)/3 = 22, humidity = 60
     mockMvc.perform(get("/sensors/query")
         .param("sensorIds", "1")
         .param("metrics", "temperature,humidity")
@@ -77,6 +79,7 @@ class SensorControllerTest {
 
   @Test
   void queryMaxTemp_windowAug1to3() throws Exception {
+    // Expect max temp = 24
     mockMvc.perform(get("/sensors/query")
         .param("sensorIds", "1")
         .param("metrics", "temperature")
@@ -90,6 +93,7 @@ class SensorControllerTest {
 
   @Test
   void querySumTemp_windowAug1to3() throws Exception {
+    // Expect sum temp = 20+22+24 = 66
     mockMvc.perform(get("/sensors/query")
         .param("sensorIds", "1")
         .param("metrics", "temperature")
@@ -98,22 +102,21 @@ class SensorControllerTest {
         .param("to",   "2025-08-03T23:59:59Z")
         .accept(MediaType.APPLICATION_JSON))
       .andExpect(status().isOk())
-      // 20 + 22 + 24 = 66
       .andExpect(jsonPath("$.resultsByMetric.temperature", is(closeTo(66.0, 1e-4))));
   }
 
   @Test
   void query_noData_returnsEmptyResult() throws Exception {
-      mockMvc.perform(get("/sensors/query")
+    // Window far in past no results, expect empty map not error
+    mockMvc.perform(get("/sensors/query")
                       .param("sensorIds", "1")
                       .param("metrics", "temperature")
                       .param("stat", "avg")
-                      // choose a range far in the past to ensure no match
                       .param("from", "2000-01-01T00:00:00Z")
                       .param("to",   "2000-01-02T00:00:00Z")
                       .accept(MediaType.APPLICATION_JSON))
-              .andExpect(status().isOk())
-              .andExpect(jsonPath("$.resultsByMetric").isMap())
-              .andExpect(jsonPath("$.resultsByMetric", anEmptyMap()));
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.resultsByMetric").isMap())
+            .andExpect(jsonPath("$.resultsByMetric", anEmptyMap()));
   }
 }

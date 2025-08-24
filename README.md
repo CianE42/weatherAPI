@@ -35,7 +35,7 @@ cd weatherAPI
 
 ### 2 Choose how to run MongoDB
 
-#### Option A — Docker Compose (repo file)
+#### Option A (Recommended) — Docker Compose (repo file)
 
 ```bash
 docker compose up -d
@@ -44,7 +44,7 @@ docker compose up -d
 
 > exposes Mongo on localhost:27017
 
-#### Option C — Local MongoDB service
+#### Option B — Local MongoDB service
 
 Install and start MongoDB 6/7; ensure it listens on `mongodb://localhost:27017`.
 
@@ -284,17 +284,13 @@ mvn test
 
 ---
 
-**Performance:** a compound index on `(sensorId, metric, timestamp)` supports fast range scans. Aggregations (min/max/sum/avg) run in Mongo via the aggregation pipeline.
-
----
-
 ## Configuration & environment
 
 - **Port:** 8080 (override via `server.port`)
 - **Mongo URI:** `spring.data.mongodb.uri` (env var `MONGO_URI` supported)
 - **Time:** timestamps are UTC (`Instant`), pass ISO-8601 (e.g., `2025-08-01T00:00:00Z`)
 
-**macOS / Apple Silicon:** The project uses `mongo:7`, which supports arm64. If you see image issues, pin to `mongo:7.0` explicitly.
+**macOS:** The project uses `mongo:7`, which supports arm64.
 
 **Windows:** Use PowerShell equivalents and ensure Docker Desktop resources are sufficient (CPU/RAM).
 
@@ -326,6 +322,7 @@ mvn test
 - Mongo aggregation pipeline + compound index
 - Global error handling (400s with useful messages)
 - Unit tests (service, enum parsing) & integration tests (MockMvc + Testcontainers)
+- Performance: a compound index on `(sensorId, metric, timestamp)` supports fast range scans. Aggregations (min/max/sum/avg) run in Mongo via the aggregation pipeline.
 
 ---
 

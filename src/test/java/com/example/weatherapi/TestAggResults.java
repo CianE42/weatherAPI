@@ -5,6 +5,9 @@ import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 
 import java.util.List;
 
+/**
+ * Test helper for mocking MongoTemplate.aggregate() results.
+ */
 public final class TestAggResults {
     private TestAggResults() {}
     public static AggregationResults<Document> docs(List<Document> mapped) {

@@ -1,5 +1,8 @@
 package com.example.weatherapi;
 
+/**
+ * Supported aggregation statistics for queries.
+ */
 public enum Statistic {
     MIN, MAX, SUM, AVG;
 

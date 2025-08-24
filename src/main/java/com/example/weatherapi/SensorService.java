@@ -12,6 +12,9 @@ import java.util.*;
 
 import static org.springframework.data.mongodb.core.aggregation.Aggregation.*;
 
+/**
+ * Service layer: handles persistence and aggregation queries for sensor data.
+ */
 @Service
 public class SensorService {
 
@@ -23,6 +26,7 @@ public class SensorService {
         this.mongoTemplate = mongoTemplate;
     }
 
+    // Save a new sensor reading (metric is validated/normalized)
     public SensorData saveSensorData(SensorDataRequest request) {
         // Validate/normalize metric
         Metric metric = Metric.from(request.getMetric());
@@ -37,6 +41,7 @@ public class SensorService {
         return repository.save(data);
     }
 
+    // Query sensor data with filters and aggregation (min/max/sum/avg)
     public QueryResult queryData(List<String> sensorIds,
                                  List<String> metrics,
                                  Statistic statistic,
@@ -90,6 +95,7 @@ public class SensorService {
         AggregationResults<Document> aggResults =
                 mongoTemplate.aggregate(agg, "sensor_data", Document.class);
 
+        // Collect results
         Map<String, Double> resultsByMetric = new LinkedHashMap<>();
         for (Document d : aggResults) {
             String metric = d.getString("metric");
